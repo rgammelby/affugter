@@ -1,0 +1,24 @@
+CREATE TABLE IF NOT EXISTS Humidity (
+    id SERIAL PRIMARY KEY,
+    percent NUMERIC(5,2) NOT NULL,
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS Electricity_Prices (
+    id SERIAL PRIMARY KEY,
+    DKK_per_kWh NUMERIC(10,4) NOT NULL,
+    time_start TIMESTAMPTZ NOT NULL,
+    time_end TIMESTAMPTZ NOT NULL,
+    Pris_inkl_VAT NUMERIC(10,4) NOT NULL,
+    CONSTRAINT unique_price_period UNIQUE (time_start, time_end)
+);
+
+CREATE TABLE IF NOT EXISTS Humidifier_State (
+    id SERIAL PRIMARY KEY,
+    state BOOLEAN NOT NULL,
+    reason TEXT,
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE Humidity
+ADD COLUMN IF NOT EXISTS temperature NUMERIC;
