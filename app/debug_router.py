@@ -5,7 +5,7 @@ from .database import (
     get_latest_humidity,
     get_current_electricity_price,
 )
-from .controller import check_humidity
+from .controller import determine_state, start_server_based_loop, stop_server_based_loop
 from .shelly import set_state
 
 
@@ -21,7 +21,7 @@ Called from venv with 'python -m app.tests <test> <value>'
 async def test_high_price():
     humidity = await get_latest_humidity()
 
-    result = await check_humidity(
+    result = await determine_state(
         humidity=humidity,
         electricity_price=100,
     )
@@ -33,7 +33,7 @@ async def test_high_price():
 async def test_low_price():
     humidity = await get_latest_humidity()
 
-    result = await check_humidity(
+    result = await determine_state(
         humidity=humidity,
         electricity_price=0.10,
     )
@@ -45,7 +45,7 @@ async def test_low_price(val: int):
     electricity_price = await get_current_electricity_price()
     humidity = val
 
-    result = await check_humidity(
+    result = await determine_state(
         humidity=humidity,
         electricity_price=electricity_price,
     )
@@ -57,7 +57,7 @@ async def test_low_price(val: float):
     electricity_price = val
     humidity = await get_latest_humidity()
 
-    result = await check_humidity(
+    result = await determine_state(
         humidity=humidity,
         electricity_price=electricity_price,
     )
@@ -66,7 +66,7 @@ async def test_low_price(val: float):
 
 @router.post("/test/custom/{hum}/{price}")
 async def test_custom(hum: int, price: float):
-    result = await check_humidity(
+    result = await determine_state(
         humidity=hum,
         electricity_price=price,
     )
@@ -78,7 +78,7 @@ async def test_custom(hum: int, price: float):
 async def test_high_humidity():
     electricity_price = await get_current_electricity_price()
 
-    result = await check_humidity(
+    result = await determine_state(
         humidity=100,
         electricity_price=electricity_price,
     )
@@ -90,7 +90,7 @@ async def test_high_humidity():
 async def test_low_humidity():
     electricity_price = await get_current_electricity_price()
 
-    result = await check_humidity(
+    result = await determine_state(
         humidity=0,
         electricity_price=electricity_price,
     )
@@ -103,7 +103,7 @@ async def test_real():
     humidity = await get_latest_humidity()
     electricity_price = await get_current_electricity_price()
 
-    result = await check_humidity(
+    result = await determine_state(
         humidity=humidity,
         electricity_price=electricity_price,
     )
@@ -127,3 +127,20 @@ async def test_off():
         return {"status": "ok"}
 
     return {"status": "failed"}
+
+@router.post("/test/server_based")
+async def test_server_based():
+    started = await start_server_based_loop()
+
+    return {
+        "status": "started" if started else "already_running"
+    }
+
+
+@router.post("/test/server_based/stop")
+async def stop_server_based():
+    stopped = await stop_server_based_loop()
+
+    return {
+        "status": "stopped" if stopped else "not_running"
+    }

@@ -39,17 +39,11 @@ async def receive_electricity_price(data: ElectricityPriceReading):
     print(
         f"Electricity price: {data.dkk_per_kwh:.5f} DKK/kWh "
         f"Threshold: {data.threshold:.5f} DKK/kWh "
-        f"Maximum normal price: {data.max_normal_electricity_price:.5f} DKK/kWh "
         f"Period: {data.time_start} - {data.time_end}"
     )
 
-    print(f"data.dkk_per_kwh: {data.dkk_per_kwh}")
-    print(f"data.time_start: {data.time_start}")
-    print(f"data.time_end: {data.time_end}")
-    print(f"data.pris_inkl_vat: {data.pris_inkl_vat}")
-
     await save_electricity_price(
-        data.dkk_per_kwh, data.time_start, data.time_end, data.pris_inkl_vat
+        data.dkk_per_kwh, data.time_start, data.time_end
     )
 
     return {"status": "ok"}
@@ -63,7 +57,7 @@ async def receive_humidifier_state(data: ShellyState):
         f"Timestamp: {datetime.now()}"
     )
 
-    print(f"State: {data.state}")
+    print(f"Shelly plug is: {'On' if data.state else 'Off'}")
     print(f"Reason: {data.reason}")
 
     await save_state(data.state, data.reason)

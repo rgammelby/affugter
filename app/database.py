@@ -1,13 +1,17 @@
 import os
 import psycopg
+import math
+from datetime import datetime
 from dotenv import load_dotenv
+from zoneinfo import ZoneInfo
+
+TIMEZONE = ZoneInfo("Europe/Copenhagen")
 
 load_dotenv()
 
-'''
+"""
 Establishes connection to the associated database and inserts data received from Arduino and electricity price API
-'''
-
+"""
 
 async def get_connection():
     return await psycopg.AsyncConnection.connect(
@@ -75,7 +79,7 @@ async def get_current_electricity_price():
             return float(result[0])
 
 
-async def save_electricity_price(dkk_per_kwh, time_start, time_end, pris_inkl_vat):
+async def save_electricity_price(dkk_per_kwh, time_start, time_end):
     conn = await get_connection()
 
     async with conn:
@@ -86,10 +90,9 @@ async def save_electricity_price(dkk_per_kwh, time_start, time_end, pris_inkl_va
                 (
                     DKK_per_kWh,
                     time_start,
-                    time_end,
-                    Pris_inkl_VAT
+                    time_end
                 )
-                VALUES (%s, %s, %s, %s)
+                VALUES (%s, %s, %s)
                 ON CONFLICT (time_start, time_end)
                 DO NOTHING
                 """,
@@ -97,7 +100,6 @@ async def save_electricity_price(dkk_per_kwh, time_start, time_end, pris_inkl_va
                     dkk_per_kwh,
                     time_start,
                     time_end,
-                    pris_inkl_vat,
                 ),
             )
 
@@ -114,3 +116,59 @@ async def save_state(state, reason):
                 """,
                 (state, reason),
             )
+
+# in a server-based context, retrieves 
+async def get_daily_threshold(percentile=0.25):
+
+    today = datetime.now(TIMEZONE).date()
+
+    conn = await get_connection()
+
+    async with conn:
+        async with conn.cursor() as cur:
+
+            await cur.execute(
+                """
+                SELECT DKK_per_kWh
+                FROM Electricity_Prices
+                WHERE time_start::date = %s
+                ORDER BY DKK_per_kWh
+                """,
+                (today,),
+            )
+
+            rows = await cur.fetchall()
+
+    if len(rows) < 4 * 24:
+        raise Exception(
+            f"Expected at least 96 electricity prices for {today}, "
+            f"but found only {len(rows)} in the database"
+        )
+
+    values = [
+        float(row[0])
+        for row in rows
+    ]
+
+    count = max(
+        1,
+        math.ceil(len(values) * percentile),
+    )
+
+    threshold = values[count - 1]
+
+    print(f"Threshold calculation for {today}:")
+    print(f"  Prices retrieved: {len(values)}")
+    print(f"  Percentile: {percentile * 100:.0f}%")
+    print(f"  Prices in lowest {percentile * 100:.0f}%: {count}")
+    print(f"  Threshold index: {count - 1}")
+    print(f"  Threshold: {threshold:.5f} DKK/kWh")
+
+    print("  Sorted prices:")
+
+    for index, value in enumerate(values):
+        print(
+            f"    {index}: {value:.5f} DKK/kWh"
+        )
+
+    return threshold

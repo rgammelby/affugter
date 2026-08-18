@@ -27,8 +27,11 @@ tests = {
     "on": lambda: "on",
     "off": lambda: "off",
     "humidity": lambda val: f"humidity/{val}",
-    "price" : lambda val: f"price/{val}",
-    "custom": lambda hum, price: f"custom/{hum}/{float(price):.3f}",}
+    "price": lambda val: f"price/{val}",
+    "custom": lambda hum, price: f"custom/{hum}/{float(price):.3f}",
+    "server_based": lambda: "server_based",
+    "server_based_stop": lambda: "server_based/stop",
+}
 
 async def main():
     import sys

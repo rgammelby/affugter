@@ -1,0 +1,4 @@
+sascha@osboxes:~/Humidifier$ python3 -m venv venv
+sascha@osboxes:~/Humidifier$ source venv/bin/activate
+cd ~/Humidifier
+source venv/bin/activate

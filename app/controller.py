@@ -1,19 +1,21 @@
+import asyncio
+from .database import save_state
 from .shelly import set_state, get_state
-from .database import save_state, get_latest_humidity, get_current_electricity_price
-from .electricity import get_daily_threshold
+from .database import get_latest_humidity, get_current_electricity_price
 from .state import app
 
-'''
+"""
 The controller plays different roles in a server-included or a server-based context.
-Server-included: check_humidity runs once on startup. After this point, the server receives its readouts exclusively from the associated microcomputer.
+Server-included: determine_state runs once on startup. After this point, the server receives its readouts exclusively from the associated microcomputer.
 Server-based: The server runs its own loop, calling price API and receiving humidity readouts only from the associated microcomputer. 
-'''
+"""
 
 MIN_HUMIDITY = 45
 MAX_HUMIDITY = 55
 EMERGENCY_THRESHOLD = 70
 
-async def check_humidity(humidity, electricity_price):
+
+async def determine_state(humidity, electricity_price):
 
     threshold = app.state.threshold
 
@@ -69,10 +71,7 @@ async def check_humidity(humidity, electricity_price):
 
     if humidity <= MIN_HUMIDITY:
         desired_state = False
-        reason = (
-            f"Humidity {humidity}% below minimum threshold "
-            f"{MIN_HUMIDITY}%"
-        )
+        reason = f"Humidity {humidity}% below minimum threshold " f"{MIN_HUMIDITY}%"
 
     print("Changing Shelly state...")
 
@@ -87,5 +86,75 @@ async def check_humidity(humidity, electricity_price):
         "humidity": humidity,
         "electricity_price": electricity_price,
         "threshold": threshold,
-        "reason" : reason,
+        "current_state": current_state,
+        "desired_state": desired_state,
+        "reason": reason,
     }
+
+# describes a loop for electricity price retrieval in a server-based context; not relevant in a server-inclusive context
+async def server_based_loop():
+    while True:
+        try:
+            humidity = await get_latest_humidity()
+            price = await get_current_electricity_price()
+
+            result = await determine_state(
+                humidity,
+                price,
+            )
+
+            if result["desired_state"] != result["current_state"]:
+                print("Changing Shelly state...")
+
+                if await set_state(result["desired_state"]):
+                    await save_state(
+                        result["desired_state"],
+                        result["reason"],
+                    )
+
+                    print(
+                        f"TURNED "
+                        f"{'ON' if result['desired_state'] else 'OFF'}: "
+                        f"{result['reason']}"
+                    )
+                else:
+                    print("Failed to change Shelly state")
+
+        except Exception as e:
+            print(f"Server-based control failed: {e}")
+
+        await asyncio.sleep(15 * 60)
+
+
+server_based_task = None
+
+
+async def start_server_based_loop():
+
+    global server_based_task
+
+    if server_based_task is not None and not server_based_task.done():
+        return False
+
+    server_based_task = asyncio.create_task(server_based_loop())
+
+    return True
+
+
+async def stop_server_based_loop():
+
+    global server_based_task
+
+    if server_based_task is None:
+        return False
+
+    server_based_task.cancel()
+
+    try:
+        await server_based_task
+    except asyncio.CancelledError:
+        pass
+
+    server_based_task = None
+
+    return True
